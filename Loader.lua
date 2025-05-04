@@ -71,6 +71,7 @@ local function HandleClicks()
         if isleftpressed() then
             if not PlayerClicked then
                 table.insert(recentClicks, tick())
+                PlayerClicked = true  -- Prevent double-clicking
             end
         else
             PlayerClicked = false
@@ -90,7 +91,10 @@ local function AutoParryThread()
             local MovingTowardsPlayer = isBallMovingStraight(FoundBall.CFrame.Position, FoundBall.Velocity, CamPos)  -- <-- Updated this line
             if Framework:Targeted() and TimeToReach <= ParryTime and Distance <= MAX_DISTANCE and MovingTowardsPlayer then
                 if ClashMode then
-                    Framework:Parry()
+                    if not Clicked then  -- Only parry if it wasn't clicked recently
+                        Framework:Parry()
+                        Clicked = true
+                    end
                 else
                     if not Clicked then
                         Framework:Parry()
