@@ -1,87 +1,110 @@
-local WorkSpace = game:GetService("Workspace")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
-local BallFolder = WorkSpace:WaitForChild("Balls")
-local LocalPlayer = Players.LocalPlayer
+local WorkSpace = game:FindService("Workspace")
+local Ball = WorkSpace:WaitForChild("Balls")
+local Players = game:FindService("Players")
+local LocalPlayer = Players:GetChildren()[1]
+--- MADE BY PIXI!!!!!!!!!!
 local MAX_DISTANCE = 150
-local ParryTime = 0.45 -- slightly tighter
 local recentClicks = {}
 local AutoClash = { clickThreshold = 3, timeWindow = 0.5 }
 local ClashMode = false
+local ParryTime = 0.3
 local Clicked = false
 local PlayerClicked = false
+local Framework = {}
 
--- utils
-local function getCameraPos()
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    return hrp and hrp.Position
+function Framework.GetCameraPosition()
+    return LocalPlayer and LocalPlayer.Character:WaitForChild("HumanoidRootPart", 1e9).CFrame.Position
 end
 
-local function isTargeted()
+function Framework.Targeted()
     return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Highlight")
 end
 
-local function getCurrentBall()
-    return BallFolder:GetChildren()[1]
+function Framework.GetCurrentBall()
+	return Ball and Ball:GetChildren()[1]
 end
 
-local function parry()
-    mouse1click()
-    table.insert(recentClicks, tick())
+function Framework.Parry()
+	mouse1click()
+	table.insert(recentClicks, tick())
 end
 
-local function isBallHeadingToPlayer(ballPos, ballVel, playerPos)
+local function isBallMovingTowardsPlayer(ballPos, ballVelocity, playerPos)
     if not playerPos then return false end
+    
+    local directionToPlayer = {
+        x = playerPos.x - ballPos.x,
+        y = playerPos.y - ballPos.y,
+        z = playerPos.z - ballPos.z
+    }
 
-    local dirToPlayer = (playerPos - ballPos).Unit
-    local velUnit = ballVel.Magnitude > 0 and ballVel.Unit or Vector3.zero
-    return dirToPlayer:Dot(velUnit) > 0.25
+    local magnitude = math.sqrt(directionToPlayer.x ^ 2 + directionToPlayer.y ^ 2 + directionToPlayer.z ^ 2)
+    directionToPlayer.x = directionToPlayer.x / magnitude
+    directionToPlayer.y = directionToPlayer.y / magnitude
+    directionToPlayer.z = directionToPlayer.z / magnitude
+    
+    local velocityMagnitude = math.sqrt(ballVelocity.x ^ 2 + ballVelocity.y ^ 2 + ballVelocity.z ^ 2)
+    local normalizedVelocity = {
+        x = ballVelocity.x / velocityMagnitude,
+        y = ballVelocity.y / velocityMagnitude,
+        z = ballVelocity.z / velocityMagnitude
+    }
+    
+    local dotProduct = directionToPlayer.x * normalizedVelocity.x + directionToPlayer.y * normalizedVelocity.y + directionToPlayer.z * normalizedVelocity.z
+    return dotProduct > 0.2
 end
 
--- check recent clicks
-task.spawn(function()
-    while true do
-        local now = tick()
-        while #recentClicks > 0 and recentClicks[1] < now - AutoClash.timeWindow do
-            table.remove(recentClicks, 1)
-        end
 
-        ClashMode = #recentClicks >= AutoClash.clickThreshold
+local function HandleClicks()
+	while true do
+		while #recentClicks > 0 and recentClicks[1] < tick() - AutoClash.timeWindow do
+			table.remove(recentClicks, 1)
+		end
 
-        if isleftpressed() then
-            if not PlayerClicked then
-                table.insert(recentClicks, now)
-                PlayerClicked = true
-            end
-        else
-            PlayerClicked = false
-        end
+		if #recentClicks >= AutoClash.clickThreshold then
+			ClashMode = true
+		else
+			ClashMode = false
+		end
 
-        task.wait(0.01)
-    end
-end)
+		if isleftpressed() then
+			if not PlayerClicked then
+				table.insert(recentClicks, tick())
+			end
+		else
+			PlayerClicked = false
+		end
+        wait()
+	end
+end
 
--- parry check (runs every frame, faster than wait())
-RunService.RenderStepped:Connect(function()
-    local ball = getCurrentBall()
-    local camPos = getCameraPos()
+local function AutoParryThread()
+	while true do
+		local FoundBall = Framework:GetCurrentBall()
+		if FoundBall then
+			local CamPos = Framework:GetCameraPosition()
+			local Distance = CamPos and math.sqrt((FoundBall.CFrame.Position.x - CamPos.x)^2 + (FoundBall.CFrame.Position.y - CamPos.y)^2 + (FoundBall.CFrame.Position.z - CamPos.z)^2) or 1e9
+			local Velocity = math.sqrt(FoundBall.Velocity.x^2 + FoundBall.Velocity.y^2 + FoundBall.Velocity.z^2)
+			local TimeToReach = Distance / Velocity
+			local MovingTowardsPlayer = isBallMovingTowardsPlayer(FoundBall.CFrame.Position, FoundBall.Velocity, CamPos)
+			if Framework:Targeted() and TimeToReach <= ParryTime and Distance <= MAX_DISTANCE and MovingTowardsPlayer then
+				if ClashMode then
+					Framework:Parry()
+				else
+					if not Clicked then
+						Framework:Parry()
+						Clicked = true
+					end
+				end
+			else
+				Clicked = false
+			end
+		end
+		wait()
+	end
+end
 
-    if not ball or not camPos then return end
+spawn(AutoParryThread)
+spawn(HandleClicks)
 
-    local distance = (ball.Position - camPos).Magnitude
-    local velocity = ball.Velocity.Magnitude
-    local timeToReach = velocity > 0 and distance / velocity or 1e9
-    local movingToPlayer = isBallHeadingToPlayer(ball.Position, ball.Velocity, camPos)
-
-    if isTargeted() and timeToReach <= ParryTime and distance <= MAX_DISTANCE and movingToPlayer then
-        if ClashMode or not Clicked then
-            parry()
-            Clicked = true
-        end
-    else
-        Clicked = false
-    end
-end)
-
-warn("✅ Blade Ball AutoParry Loaded (Optimized)")
+warn("Blade Ball AP Loaded. -Fixed by zwag, Created by pixi")
