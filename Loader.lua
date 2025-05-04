@@ -2,15 +2,16 @@ local WorkSpace = game:FindService("Workspace")
 local Ball = WorkSpace:WaitForChild("Balls")
 local Players = game:FindService("Players")
 local LocalPlayer = Players:GetChildren()[1]
---- MADE BY PIXI!!!!!!!!!!
-local MAX_DISTANCE = 150
+--- MADE BY ATORICS
+local MAX_DISTANCE = 120  -- Reduced max distance for more precise detection
 local recentClicks = {}
-local AutoClash = { clickThreshold = 3, timeWindow = 0.5 }
+local AutoClash = { clickThreshold = 2, timeWindow = 0.4 }  -- Trigger clash mode with fewer clicks and quicker window
 local ClashMode = false
-local ParryTime = 0.3
+local ParryTime = 0.25  -- Shortened parry time window for quicker reactions
 local Clicked = false
 local PlayerClicked = false
 local Framework = {}
+local dotProductThreshold = 0.90  -- Adjusted anti-curve threshold for stricter alignment
 
 function Framework.GetCameraPosition()
     return LocalPlayer and LocalPlayer.Character:WaitForChild("HumanoidRootPart", 1e9).CFrame.Position
@@ -51,9 +52,9 @@ local function isBallMovingStraight(ballPos, ballVelocity, playerPos)
         z = ballVelocity.z / velocityMagnitude
     }
 
-    -- Calculate dot product and check if it's straight enough
+    -- Calculate dot product and check if it's straight enough (increased threshold)
     local dotProduct = directionToPlayer.x * normalizedVelocity.x + directionToPlayer.y * normalizedVelocity.y + directionToPlayer.z * normalizedVelocity.z
-    return dotProduct > 0.85  -- Adjust this threshold if needed
+    return dotProduct > dotProductThreshold  -- Adjusted threshold for stricter alignment
 end
 
 local function HandleClicks()
@@ -112,4 +113,4 @@ end
 spawn(AutoParryThread)
 spawn(HandleClicks)
 
-warn("Blade Ball AP Loaded. -Fixed by zwag, Created by pixi")
+warn("Blade Ball AP Loaded. -Created By Atorics")
