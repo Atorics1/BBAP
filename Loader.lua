@@ -21,15 +21,16 @@ function Framework.Targeted()
 end
 
 function Framework.GetCurrentBall()
-	return Ball and Ball:GetChildren()[1]
+    return Ball and Ball:GetChildren()[1]
 end
 
 function Framework.Parry()
-	mouse1click()
-	table.insert(recentClicks, tick())
+    mouse1click()
+    table.insert(recentClicks, tick())
 end
 
-local function isBallMovingTowardsPlayer(ballPos, ballVelocity, playerPos)
+-- Anti-curve function to check if the ball is moving straight enough towards the player
+local function isBallMovingStraight(ballPos, ballVelocity, playerPos)
     if not playerPos then return false end
     
     local directionToPlayer = {
@@ -49,59 +50,59 @@ local function isBallMovingTowardsPlayer(ballPos, ballVelocity, playerPos)
         y = ballVelocity.y / velocityMagnitude,
         z = ballVelocity.z / velocityMagnitude
     }
-    
+
+    -- Calculate dot product and check if it's straight enough
     local dotProduct = directionToPlayer.x * normalizedVelocity.x + directionToPlayer.y * normalizedVelocity.y + directionToPlayer.z * normalizedVelocity.z
-    return dotProduct > 0.2
+    return dotProduct > 0.85  -- Adjust this threshold if needed
 end
 
-
 local function HandleClicks()
-	while true do
-		while #recentClicks > 0 and recentClicks[1] < tick() - AutoClash.timeWindow do
-			table.remove(recentClicks, 1)
-		end
+    while true do
+        while #recentClicks > 0 and recentClicks[1] < tick() - AutoClash.timeWindow do
+            table.remove(recentClicks, 1)
+        end
 
-		if #recentClicks >= AutoClash.clickThreshold then
-			ClashMode = true
-		else
-			ClashMode = false
-		end
+        if #recentClicks >= AutoClash.clickThreshold then
+            ClashMode = true
+        else
+            ClashMode = false
+        end
 
-		if isleftpressed() then
-			if not PlayerClicked then
-				table.insert(recentClicks, tick())
-			end
-		else
-			PlayerClicked = false
-		end
+        if isleftpressed() then
+            if not PlayerClicked then
+                table.insert(recentClicks, tick())
+            end
+        else
+            PlayerClicked = false
+        end
         wait()
-	end
+    end
 end
 
 local function AutoParryThread()
-	while true do
-		local FoundBall = Framework:GetCurrentBall()
-		if FoundBall then
-			local CamPos = Framework:GetCameraPosition()
-			local Distance = CamPos and math.sqrt((FoundBall.CFrame.Position.x - CamPos.x)^2 + (FoundBall.CFrame.Position.y - CamPos.y)^2 + (FoundBall.CFrame.Position.z - CamPos.z)^2) or 1e9
-			local Velocity = math.sqrt(FoundBall.Velocity.x^2 + FoundBall.Velocity.y^2 + FoundBall.Velocity.z^2)
-			local TimeToReach = Distance / Velocity
-			local MovingTowardsPlayer = isBallMovingTowardsPlayer(FoundBall.CFrame.Position, FoundBall.Velocity, CamPos)
-			if Framework:Targeted() and TimeToReach <= ParryTime and Distance <= MAX_DISTANCE and MovingTowardsPlayer then
-				if ClashMode then
-					Framework:Parry()
-				else
-					if not Clicked then
-						Framework:Parry()
-						Clicked = true
-					end
-				end
-			else
-				Clicked = false
-			end
-		end
-		wait()
-	end
+    while true do
+        local FoundBall = Framework:GetCurrentBall()
+        if FoundBall then
+            local CamPos = Framework:GetCameraPosition()
+            local Distance = CamPos and math.sqrt((FoundBall.CFrame.Position.x - CamPos.x)^2 + (FoundBall.CFrame.Position.y - CamPos.y)^2 + (FoundBall.CFrame.Position.z - CamPos.z)^2) or 1e9
+            local Velocity = math.sqrt(FoundBall.Velocity.x^2 + FoundBall.Velocity.y^2 + FoundBall.Velocity.z^2)
+            local TimeToReach = Distance / Velocity
+            local MovingTowardsPlayer = isBallMovingStraight(FoundBall.CFrame.Position, FoundBall.Velocity, CamPos)  -- <-- Updated this line
+            if Framework:Targeted() and TimeToReach <= ParryTime and Distance <= MAX_DISTANCE and MovingTowardsPlayer then
+                if ClashMode then
+                    Framework:Parry()
+                else
+                    if not Clicked then
+                        Framework:Parry()
+                        Clicked = true
+                    end
+                end
+            else
+                Clicked = false
+            end
+        end
+        wait()
+    end
 end
 
 spawn(AutoParryThread)
